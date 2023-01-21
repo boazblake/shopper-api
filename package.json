@@ -1,5 +1,5 @@
 {
-  "name": "trello-api",
+  "name": "shopper-api",
   "version": "1.0.0",
   "main": "index.js",
   "author": "Boaz Blake <BBlake@goempyrean.com>",
@@ -9,4 +9,3 @@
     "clean": "deno cache --reload ./deps.ts"
   }
 }
-
