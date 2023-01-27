@@ -1,20 +1,28 @@
-export type IProject = {
-  id: string,
+export type IStore = {
+  id: string
   title: string
   order: number
 }
 
-export type ITicket = {
-  id: string,
+
+export type ICat = {
+  id: string
+  storeId: string
   title: string
-  projectId: string
+  collapsed: boolean
+  dragCollapsed: boolean
   order: number
 }
 
-export type IIssue = {
-  id: string,
-  title: string,
-  ticketId: string,
+export type IItem = {
+  id: string
+  catId: string
+  title: string
+  quantity: number
+  unit: string
+  purchased: false,
+  price: number
+  notes: string
   order: number
 }
 

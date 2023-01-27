@@ -1,185 +1,205 @@
-import { Application, Router, helpers, oakCors, etag, R } from "./deps.ts"
-import Projects from './projects.ts'
-import Tickets from './tickets.ts'
-import Issues from './issues.ts'
+import {Application, Router, helpers, oakCors, etag, R} from "./deps.ts"
+import Stores from './stores.ts'
+import Cats, {defaultCats, toCatObj} from "./categorys.ts"
+import Items from './items.ts'
 import logger from './logger.ts'
-import {ITicket, IProject, IIssue   } from './types.ts'
+import {Icat, IStore, IItem} from './types.ts'
 
-const log = (m:string) => (v:any) => { console.log(m, v);  return v}
+const log = (m: string) => (v: any) => {console.log(m, v); return v}
 const range = (size: number) => [...Array(size).keys()]
+
 
 
 const port = 8000
 const app = new Application()
 const router = new Router()
 
-router.get('/projects', (ctx) => {
-  ctx.response.body = Projects.getAll()
+router.get('/stores', (ctx) => {
+  ctx.response.body = Stores.getAll()
 })
 
 
-router.get('/projects/:id', (ctx) => {
-  let {id} = helpers.getQuery(ctx, { mergeParams: true })
+router.get('/stores/:id', (ctx) => {
+  let {id} = helpers.getQuery(ctx, {mergeParams: true})
 
-  ctx.response.body = Projects.getById(id)
+  ctx.response.body = Stores.getById(id)
 })
 
-router.post('/projects', async ctx => {
-  let {value} =  ctx.request.body({ type: 'json' })
-  let project = await value
-  let last = Projects.getAll().at(-1)
+router.post('/stores', async ctx => {
+  let {value} = ctx.request.body({type: 'json'})
+  let store = await value
+  let last = Stores.getAll().at(-1)
   if (last) {
-    project.order = (last.order) + 1
+    store.order = (last.order) + 1
   }
-  Projects.add(project.id,project)
-  ctx.response.body = Projects.getById(project.id)
+  defaultCats.map((cat, idx) => toCatObj(cat, idx, store.id)).forEach(cat => Cats.add(cat.id, cat))
+  Stores.add(store.id, store)
+  ctx.response.body = Stores.getById(store.id)
 })
 
-router.put('/projects/:id', async ctx => {
-  let {id} = helpers.getQuery(ctx, { mergeParams: true })
-  let {value} =  ctx.request.body({ type: 'json' })
-  let project = await value
-  let prev = Projects.getById(id)
-  if(prev){  if ((prev.order) != (project.order)) {
-    let idx = range(Math.abs((prev.order) - (project.order)))
-    let ord  = (prev.order) > (project.order)
-    let xs  = Projects.getAll().filter((x: IProject) => idx.includes((x.order)))
-    xs.forEach((x:IProject) => {
-      x.order = ord ? ((x.order) + 1) : ((x.order) - 1)
-      Projects.updateById(x.id, x)
-    })
-  }}
-  Projects.updateById(id,project)
-  ctx.response.body = Projects.getById(id)
+router.put('/stores/:id', async ctx => {
+  let {id} = helpers.getQuery(ctx, {mergeParams: true})
+  let {value} = ctx.request.body({type: 'json'})
+  let store = await value
+  let prev = Stores.getById(id)
+  if (prev) {
+    if ((prev.order) != (store.order)) {
+      let idx = range(Math.abs((prev.order) - (store.order)))
+      let ord = (prev.order) > (store.order)
+      let xs = Stores.getAll().filter((x: IStore) => idx.includes((x.order)))
+      xs.forEach((x: IStore) => {
+        x.order = ord ? ((x.order) + 1) : ((x.order) - 1)
+        Stores.updateById(x.id, x)
+      })
+    }
+  }
+  Stores.updateById(id, store)
+  ctx.response.body = Stores.getById(id)
 })
 
 
-router.options('/projects/:id', oakCors({ origin: "http://localhost:3000" }))
-  .delete('/projects/:id', oakCors({ origin: "http://localhost:3000" }), async ctx => {
-  let { id } = helpers.getQuery(ctx, { mergeParams: true })
-  let ticketIds = R.compose(R.pluck('id'), R.filter(R.propEq('projectId', id)))(Tickets.getAll())
-  let issues = Issues.getAll()
-    let issueIds = R.compose(R.pluck('id'), R.filter((x: IIssue) => ticketIds.includes(x.ticketId)))(issues)
-    console.log('delete 0project', issueIds)
-  issueIds.forEach((id: string) => Issues.deleteById(id))
-  ticketIds.forEach(((id: string) => Tickets.deleteById(id)))
-  Projects.deleteById(id)
-  ctx.response.body = []
+router.options('/stores/:id', oakCors({origin: "http://localhost:3000"}))
+  .delete('/stores/:id', oakCors({origin: "http://localhost:3000"}), async ctx => {
+    let {id} = helpers.getQuery(ctx, {mergeParams: true})
+    let catIds = R.compose(R.pluck('id'), R.filter(R.propEq('storeId', id)))(Cats.getAll())
+    let items = Items.getAll()
+    let itemIds = R.compose(R.pluck('id'), R.filter((x: IItem) => catIds.includes(x.catId)))(items)
+    console.log('delete 0store', itemIds)
+    itemIds.forEach((id: string) => Items.deleteById(id))
+    catIds.forEach(((id: string) => Cats.deleteById(id)))
+    Stores.deleteById(id)
+    ctx.response.body = []
+  })
+
+router.get('/cats', (ctx) => {
+  ctx.response.body = Cats.getAll()
 })
 
-router.get('/tickets', (ctx) => {
-  ctx.response.body = Tickets.getAll()
-})
-
-router.post('/tickets', async (ctx) => {
-  let {value} =  ctx.request.body({ type: 'json' })
-  let ticket = await value
-    let last = Tickets.getAll().filter(R.propEq('projectId', ticket.projectId)).sort(R.prop('order')).at(-1)
+router.post('/cats', async (ctx) => {
+  let {value} = ctx.request.body({type: 'json'})
+  let cat = await value
+  let last = Cats.getAll().filter(R.propEq('storeId', cat.storeId)).sort(R.prop('order')).at(-1)
   if (last) {
-    ticket.order = (last.order) + 1
+    cat.order = (last.order) + 1
   }
-  console.log('tickert',ticket, last)
-  Tickets.add(ticket.id,ticket)
-  ctx.response.body = Tickets.getById(ticket.id)
+  console.log('cat', cat, last)
+  Cats.add(cat.id, cat)
+  ctx.response.body = Cats.getById(cat.id)
 })
 
-router.put('/tickets/:id', async ctx => {
-  let {id} = helpers.getQuery(ctx, { mergeParams: true })
-  let {value} =  ctx.request.body({ type: 'json' })
-  let ticket = await value
-  let prev = Tickets.getById(id)
-  if(prev){  if ((prev.order) != (ticket.order)) {
-    let idx = range(Math.abs((prev.order) - (ticket.order)))
-    let ord  = (prev.order) > (ticket.order)
-    let xs  = Tickets.getAll().filter((x: ITicket) => idx.includes((x.order)))
-    xs.forEach((x:ITicket) => {
-      x.order = ord ? ((x.order) + 1) : ((x.order) - 1)
-      Tickets.updateById(x.id, x)
-    })
-  }}
-  Tickets.updateById(id,ticket)
-  ctx.response.body = Tickets.getById(id)
-})
-
-router.options('/tickets/:id', oakCors({ origin: "http://localhost:3000" }))
-  .delete('/tickets/:id', oakCors({ origin: "http://localhost:3000" }), async ctx => {
-  let { id } = helpers.getQuery(ctx, { mergeParams: true })
-  let issueIds = R.compose(R.pluck('id'), R.filter(R.propEq('ticketId', id)))(Issues.getAll())
-    console.log('delete ticket', issueIds)
-  issueIds.forEach(((id: string) => Issues.deleteById(id)))
-  Tickets.deleteById(id)
-  ctx.response.body = []
-})
-
-router.get('/issues', (ctx) => {
-  ctx.response.body = Issues.getAll()
-})
-
-router.post('/issues', async (ctx) => {
-  let {value} =  ctx.request.body({ type: 'json' })
-  let issue = await value
-    let last = Issues.getAll().filter(R.propEq('ticketId', issue.ticketId)).sort(R.prop('order')).at(-1)
-  if (last) {
-    issue.order = (last.order) + 1
+router.put('/cats/:id', async ctx => {
+  let {id} = helpers.getQuery(ctx, {mergeParams: true})
+  let {value} = ctx.request.body({type: 'json'})
+  let cat = await value
+  let prev = Cats.getById(id)
+  if (prev) {
+    if ((prev.order) != (cat.order)) {
+      let idx = range(Math.abs((prev.order) - (cat.order)))
+      let ord = (prev.order) > (cat.order)
+      let xs = Cats.getAll().filter((x: Icat) => idx.includes((x.order)))
+      xs.forEach((x: Icat) => {
+        x.order = ord ? ((x.order) + 1) : ((x.order) - 1)
+        Cats.updateById(x.id, x)
+      })
+    }
   }
-  Issues.add(issue.id,issue)
-  ctx.response.body = Issues.getById(issue.id)
+  Cats.updateById(id, cat)
+  ctx.response.body = Cats.getById(id)
 })
 
-router.put('/issues/:id', async (ctx) => {
-  let {id} = helpers.getQuery(ctx, { mergeParams: true })
-  let {value} =  ctx.request.body({ type: 'json' })
-  let issue = await value
-  let prev = Issues.getById(id)
+router.options('/cats/:id', oakCors({origin: "http://localhost:3000"}))
+  .delete('/cats/:id', oakCors({origin: "http://localhost:3000"}), async ctx => {
+    let {id} = helpers.getQuery(ctx, {mergeParams: true})
+    let itemIds = R.compose(R.pluck('id'), R.filter(R.propEq('catId', id)))(Items.getAll())
+    console.log('delete cat', itemIds)
+    itemIds.forEach(((id: string) => Items.deleteById(id)))
+    Cats.deleteById(id)
+    ctx.response.body = []
+  })
+
+router.get('/items', (ctx) => {
+  ctx.response.body = Items.getAll()
+})
+
+router.post('/items', async (ctx) => {
+  let {value} = ctx.request.body({type: 'json'})
+  let item = await value
+  // let last = Items.getAll().filter(R.propEq('catId', item.catId)).sort(R.prop('order')).at(-1)
+  // if (last) {
+  //   item.order = (last.order) + 1
+  // }
+  Items.add(item.id, item)
+  ctx.response.body = Items.getById(item.id)
+})
+
+router.post('/items/reorder', async (ctx) => {
+  let {value} = ctx.request.body({type: 'json'})
+  let [dragged, swap] = await value
+
+  let newDragOrder = swap.order
+  let newSwapOrder = dragged.order
+
+  dragged.order = newDragOrder
+  swap.order = newSwapOrder
+  const updates = [dragged, swap]
+  updates.forEach(item => Items.updateById(item.id, item))
+  ctx.response.body = []//Items.getById(item.id)
+})
+
+router.put('/items/:id', async (ctx) => {
+  let {id} = helpers.getQuery(ctx, {mergeParams: true})
+  let {value} = ctx.request.body({type: 'json'})
+  let item = await value
+  let prev = Items.getById(id)
   if (prev) {
 
-    if (prev.ticketId == issue.ticketId) {
-      if ((prev.order) != (issue.order)) {
-        //same ticket
-        let idxs = range(Math.abs((prev.order) - (issue.order)))
-        let ord = (prev.order) > (issue.order)
-        let xs = Issues.getAll().filter((x: IIssue) => idxs.includes((x.order)))
-        xs.forEach((x: IIssue) => {
+    if (prev.catId == item.catId) {
+      if ((prev.order) != (item.order)) {
+        //same cat
+        let idxs = range(Math.abs((prev.order) - (item.order)))
+        let ord = (prev.order) > (item.order)
+        let xs = Items.getAll().filter((x: IItem) => idxs.includes((x.order)))
+        xs.forEach((x: IItem) => {
           x.order = ord ? ((x.order) + 1) : ((x.order) - 1)
-          Issues.updateById(x.id, x)
+          Items.updateById(x.id, x)
         })
       }
     } else {
-      // handle prev ticket issues
-      let prevXs = Issues.getAll().filter((x: IIssue) => prev && (x.order) > (prev.order))
+      // handle prev cat items
+      let prevXs = Items.getAll().filter((x: IItem) => prev && (x.order) > (prev.order))
       prevXs.forEach(x => {
         x.order = ((x.order) - 1)
-          Issues.updateById(x.id, x)
+        Items.updateById(x.id, x)
       })
 
-      // handle new ticket issues
+      // handle new cat items
 
-        let newXs = Issues.getAll().filter((x: IIssue) => x.ticketId == issue.ticketId && (x.order) > (issue.order))
-        newXs.forEach((x: IIssue) => {
-          x.order =  ((x.order) + 1)
-          Issues.updateById(x.id, x)
-        })
+      let newXs = Items.getAll().filter((x: IItem) => x.catId == item.catId && (x.order) > (item.order))
+      newXs.forEach((x: IItem) => {
+        x.order = ((x.order) + 1)
+        Items.updateById(x.id, x)
+      })
     }
   }
-  Issues.updateById(issue.id,issue)
-  ctx.response.body = Issues.getById(issue.id)
+  Items.updateById(item.id, item)
+  ctx.response.body = Items.getById(item.id)
 })
 
-router.options('/issues/:id', oakCors({ origin: "http://localhost:3000" }))
-  .delete('/issues/:id', oakCors({ origin: "http://localhost:3000" }), async ctx => {
-  let { id } = helpers.getQuery(ctx, { mergeParams: true })
-  Issues.deleteById(id)
-  ctx.response.body = []
-})
+router.options('/items/:id', oakCors({origin: "http://localhost:3000"}))
+  .delete('/items/:id', oakCors({origin: "http://localhost:3000"}), async ctx => {
+    let {id} = helpers.getQuery(ctx, {mergeParams: true})
+    Items.deleteById(id)
+    ctx.response.body = []
+  })
 
 app.use(etag.factory())
 app.use(logger.logger)
 app.use(logger.responseTime)
-app.use(oakCors({ origin: "*" }))
+app.use(oakCors({origin: "*"}))
 app.use(router.allowedMethods())
 app.use(router.routes())
 
 app.addEventListener('listen', ({port}) => log(`Listening on: localhost`)(port))
 
-await app.listen({ port })
+await app.listen({port})
 
