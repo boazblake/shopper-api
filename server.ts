@@ -58,8 +58,8 @@ router.put('/stores/:id', async ctx => {
 })
 
 
-router.options('/stores/:id', oakCors({origin: "http://localhost:3000"}))
-  .delete('/stores/:id', oakCors({origin: "http://localhost:3000"}), async ctx => {
+router.options('/stores/:id', oakCors({origin: "*"}))
+  .delete('/stores/:id', oakCors({origin: "*"}), async ctx => {
     let {id} = helpers.getQuery(ctx, {mergeParams: true})
     let catIds = R.compose(R.pluck('id'), R.filter(R.propEq('storeId', id)))(Cats.getAll())
     let items = Items.getAll()
@@ -107,8 +107,8 @@ router.put('/cats/:id', async ctx => {
   ctx.response.body = Cats.getById(id)
 })
 
-router.options('/cats/:id', oakCors({origin: "http://localhost:3000"}))
-  .delete('/cats/:id', oakCors({origin: "http://localhost:3000"}), async ctx => {
+router.options('/cats/:id', oakCors({origin: "*"}))
+  .delete('/cats/:id', oakCors({origin: "*"}), async ctx => {
     let {id} = helpers.getQuery(ctx, {mergeParams: true})
     let itemIds = R.compose(R.pluck('id'), R.filter(R.propEq('catId', id)))(Items.getAll())
     console.log('delete cat', itemIds)
@@ -185,8 +185,8 @@ router.put('/items/:id', async (ctx) => {
   ctx.response.body = Items.getById(item.id)
 })
 
-router.options('/items/:id', oakCors({origin: "http://localhost:3000"}))
-  .delete('/items/:id', oakCors({origin: "http://localhost:3000"}), async ctx => {
+router.options('/items/:id', oakCors({origin: "*"}))
+  .delete('/items/:id', oakCors({origin: "*"}), async ctx => {
     let {id} = helpers.getQuery(ctx, {mergeParams: true})
     Items.deleteById(id)
     ctx.response.body = []
