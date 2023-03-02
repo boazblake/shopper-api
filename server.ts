@@ -157,7 +157,7 @@ router.put('/items/:id', async (ctx) => {
       //same cat
       if ((oldItem.order) != (item.order)) {
         let idxs = rangeDiff(oldItem.order, item.order)
-        let isAsc = (oldItem.order) > (item.order)
+        let isAsc = (oldItem.order) < (item.order)
         let xs = Items.getAll().filter((x: IItem) => idxs.includes((x.order)))
         xs.forEach((x: IItem) => {
           console.log('X before', x)
