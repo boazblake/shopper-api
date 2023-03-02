@@ -4,6 +4,7 @@ import Cats, {defaultCats, toCatObj} from "./categorys.ts"
 import Items from './items.ts'
 import logger from './logger.ts'
 import {Icat, IStore, IItem} from './types.ts'
+import {rangeDiff} from './utils.js'
 
 const log = (m: string) => (v: any) => {console.log(m, v); return v}
 const range = (size: number) => [...Array(size).keys()]
@@ -150,25 +151,26 @@ router.put('/items/:id', async (ctx) => {
   let {id} = helpers.getQuery(ctx, {mergeParams: true})
   let {value} = ctx.request.body({type: 'json'})
   let item = await value
-  let prev = Items.getById(id)
-  if (prev) {
-
-    if (prev.catId == item.catId) {
-      if ((prev.order) != (item.order)) {
-        //same cat
-        let idxs = range(Math.abs((prev.order) - (item.order)))
-        let ord = (prev.order) > (item.order)
+  let oldItem = Items.getById(id)
+  if (oldItem) {
+    if (oldItem.catId == item.catId) {
+      //same cat
+      if ((oldItem.order) != (item.order)) {
+        let idxs = rangeDiff(oldItem.order, item.order)
+        let isAsc = (oldItem.order) > (item.order)
         let xs = Items.getAll().filter((x: IItem) => idxs.includes((x.order)))
         xs.forEach((x: IItem) => {
-          x.order = ord ? ((x.order) + 1) : ((x.order) - 1)
+          console.log('X before', x)
+          x.order = isAsc ? x.order + 1 : x.order - 1
+          console.log('X after', x)
           Items.updateById(x.id, x)
         })
       }
     } else {
       // handle prev cat items
-      let prevXs = Items.getAll().filter((x: IItem) => prev && (x.order) > (prev.order))
+      let prevXs = Items.getAll().filter((x: IItem) => oldItem && (x.order) >= (oldItem.order))
       prevXs.forEach(x => {
-        x.order = ((x.order) - 1)
+        x.order = (x.order + 1)
         Items.updateById(x.id, x)
       })
 
